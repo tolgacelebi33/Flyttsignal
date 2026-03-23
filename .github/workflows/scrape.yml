@@ -1,0 +1,47 @@
+name: FlyttSignal — Scrape och deploy
+
+on:
+  schedule:
+    # Varje måndag 06:00 UTC (08:00 svensk tid)
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    # Tillåter manuell körning från GitHub-gränssnittet
+    # Gå till repot → Actions → FlyttSignal → Run workflow
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hämta repot
+        uses: actions/checkout@v4
+
+      - name: Installera Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installera beroenden
+        run: pip install requests beautifulsoup4
+
+      - name: Kör scraper och bygg index.html
+        run: python build_final.py
+
+      - name: Spara snapshot tillbaka till repot
+        run: |
+          git config user.name "FlyttSignal Bot"
+          git config user.email "bot@flyttsignal"
+          git add snapshot_prev.json press_signals.json || true
+          git diff --staged --quiet || git commit -m "Snapshot $(date +%Y-%m-%d)"
+          git push || true
+
+      - name: Ladda upp index.html till GoDaddy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server:     ${{ secrets.FTP_SERVER }}
+          username:   ${{ secrets.FTP_USER }}
+          password:   ${{ secrets.FTP_PASS }}
+          local-dir:  ./
+          server-dir: /public_html/flyttsignal/
+          include: |
+            index.html
