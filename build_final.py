@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
 """
-FlyttSignal — komplett build-skript
-Kör: python build_final.py
-
-1. Scraper hyresgäster (Castellum + platshållare för Vasakronan/Fabege)
-2. Scraper pressreleaser från alla tre
-3. Korsrefererar: bekräftade flytt-signaler om ett bolag
-   - Försvunnit ur snapshot OCH nämns i ny pressrelease = BEKRÄFTAD
-   - Enbart försvunnit ur snapshot = MÖJLIG
-   - Enbart i pressrelease (ny på plats) = BEKRÄFTAD (inkommande)
-4. Bäddar in data + signaler i index.html
-
+FlyttSignal — build script
+Kör: python build_final_v2.py
 Krav: pip install requests beautifulsoup4
 """
 
@@ -21,25 +12,25 @@ try:
     import requests
     from bs4 import BeautifulSoup
 except ImportError:
-    sys.exit("Installera: pip install requests beautifulsoup4")
-
-from scrape_press import scrape_all_press, match_signals_to_tenants
+    sys.exit("Kör: pip install requests beautifulsoup4")
 
 TODAY     = datetime.date.today().isoformat()
-TMPL      = Path(__file__).parent / "flyttsignal_v5_template.html"
-OUT       = Path(__file__).parent / "index.html"
-SNAP_FILE = Path(__file__).parent / "snapshot_prev.json"
-PRESS_FILE= Path(__file__).parent / "press_signals.json"
-HEADERS   = {"User-Agent": "Mozilla/5.0 (compatible; FlyttSignal/1.0)",
-              "Accept-Language": "sv-SE,sv;q=0.9"}
+HERE      = Path(__file__).parent
+TMPL      = HERE / "flyttsignal_v5_template.html"
+OUT       = HERE / "index.html"
+SNAP_FILE = HERE / "snapshot_prev.json"
+HEADERS   = {
+    "User-Agent": "Mozilla/5.0 (compatible; FlyttSignal/1.0)",
+    "Accept-Language": "sv-SE,sv;q=0.9",
+}
 
 
-# ── CASTELLUM-SCRAPER (samma som tidigare) ────────────────────────────────────
+# ── SCRAPE CASTELLUM ──────────────────────────────────────────────────────────
 
-def castellum_links(city="STOCKHOLM"):
+def get_links():
     links = set()
     for page in range(1, 8):
-        url = f"https://www.castellum.se/fastigheter/Search/?City={city}&Text=&CurrentPage={page}"
+        url = f"https://www.castellum.se/fastigheter/Search/?City=STOCKHOLM&Text=&CurrentPage={page}"
         try:
             r = requests.get(url, headers=HEADERS, timeout=15)
             soup = BeautifulSoup(r.text, "html.parser")
@@ -48,16 +39,17 @@ def castellum_links(city="STOCKHOLM"):
                 h = a["href"]
                 if re.match(r"/fastigheter/[a-z0-9-]+/?$", h):
                     links.add("https://www.castellum.se" + h)
+            print(f"  Sida {page}: {len(links)} fastigheter")
             if len(links) == before:
                 break
-            time.sleep(0.25)
+            time.sleep(0.3)
         except Exception as e:
-            print(f"  Sida {page}: {e}")
+            print(f"  Sida {page} fel: {e}")
             break
     return list(links)
 
 
-def castellum_property(url):
+def scrape_property(url):
     try:
         r = requests.get(url, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(r.text, "html.parser")
@@ -66,7 +58,7 @@ def castellum_property(url):
         address = ""
         for s in soup.find_all("script", type="application/ld+json"):
             try:
-                d = json.loads(s.string)
+                d = json.loads(s.string or "")
                 if d.get("@type") == "Place":
                     address = d.get("address", {}).get("streetAddress", "")
                     break
@@ -98,27 +90,90 @@ def castellum_property(url):
         return None
 
 
-def scrape_tenants():
-    data = []
-    print("== Castellum ==")
-    links = castellum_links()
-    print(f"  {len(links)} fastigheter")
-    for i, url in enumerate(links):
-        r = castellum_property(url)
-        if r:
-            data.append(r)
-        if (i + 1) % 25 == 0:
-            print(f"  {i+1}/{len(links)} klara ({len(data)} med hyresgäster)")
-        time.sleep(0.1)
-    print(f"  Totalt: {len(data)} fastigheter med hyresgäster")
-    # Vasakronan + Fabege: platshållare tills structure verifierats
-    return data
+# ── SCRAPE PRESSRELEASER ──────────────────────────────────────────────────────
+
+def scrape_press():
+    """Hämta uthyrningsmeddelanden från Castellum, Vasakronan och Fabege."""
+    results = []
+
+    sources = [
+        ("Castellum",  "https://www.castellum.se/media/",
+         "/media/pressmeddelanden/pressmeddelande/", "/media/artiklar/"),
+        ("Vasakronan", "https://vasakronan.se/om-vasakronan/press/pressmeddelanden/",
+         "/pressmeddelande/", None),
+        ("Fabege",     "https://www.fabege.se/om-fabege/pressrum/nyheter/",
+         "/pressrum/nyheter/", None),
+    ]
+
+    lease_kw  = ["hyresavtal", "hyr ut", "förhyrning", "tecknat avtal", "kvadratmeter", "kvm", "välkomnar"]
+    sthlm_kw  = ["stockholm", "solna", "kista", "danderyd", "hammarby", "nacka", "bromma", "city"]
+
+    for source_name, index_url, *path_patterns in sources:
+        try:
+            r = requests.get(index_url, headers=HEADERS, timeout=15)
+            soup = BeautifulSoup(r.text, "html.parser")
+            links = set()
+            for a in soup.find_all("a", href=True):
+                h = a["href"]
+                for pat in path_patterns:
+                    if pat and pat in h and h.count("/") > 3:
+                        full = h if h.startswith("http") else f"https://{index_url.split('/')[2]}{h}"
+                        links.add(full)
+            print(f"  {source_name}: {len(links)} pressreleaser")
+
+            for link in list(links)[:30]:  # max 30 per källa
+                try:
+                    pr = requests.get(link, headers=HEADERS, timeout=15)
+                    psoup = BeautifulSoup(pr.text, "html.parser")
+                    title_el = psoup.find("h1")
+                    title = title_el.get_text(strip=True) if title_el else ""
+                    body_el = psoup.find("article") or psoup.find("main") or psoup.body
+                    body = body_el.get_text(" ", strip=True) if body_el else ""
+                    full_text = (title + " " + body).lower()
+
+                    if not any(k in full_text for k in lease_kw):
+                        continue
+                    if source_name != "Fabege" and not any(k in full_text for k in sthlm_kw):
+                        continue
+
+                    # Extrahera bolagsnamn
+                    companies = []
+                    for pat in [
+                        r"(?:avtal med|hyresavtal med|välkomnar|tecknar med)\s+([A-ZÅÄÖ][^\.,\n]{2,60?}(?:AB|HB|KB|Inc|Ltd|AS))",
+                        r"([A-ZÅÄÖ][^\.,\n]{2,60?}(?:AB|HB|KB|Inc|Ltd|AS))\s+(?:tecknar|hyr|flyttar|etablerar)",
+                    ]:
+                        for m in re.finditer(pat, title + " " + body):
+                            name = m.group(1).strip().rstrip(".,;:")
+                            if 3 < len(name) < 80:
+                                companies.append(name)
+
+                    sqm_m = re.search(r"(\d[\d\s]*)\s*(?:kvadratmeter|kvm)", body, re.I)
+                    sqm = int(re.sub(r"\s", "", sqm_m.group(1))) if sqm_m else None
+
+                    date_el = psoup.find("time")
+                    pub_date = (date_el.get("datetime", "")[:10] if date_el else "") or TODAY
+
+                    if companies:
+                        results.append({
+                            "source":    source_name,
+                            "title":     title,
+                            "url":       link,
+                            "companies": list(set(companies)),
+                            "sqm":       sqm,
+                            "pub_date":  pub_date,
+                        })
+                    time.sleep(0.15)
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"  {source_name} index fel: {e}")
+
+    return results
 
 
 # ── DELTA ─────────────────────────────────────────────────────────────────────
 
 def compute_delta(current, prev_snap):
-    """Jämför mot föregående snapshot. Returnerar per-slug dict."""
     delta = {}
     prev = prev_snap.get("data", {})
     for f in current:
@@ -132,69 +187,50 @@ def compute_delta(current, prev_snap):
                 "gone":      gone,
                 "added":     added,
                 "snapDate":  prev_snap.get("date", "?"),
-                "confirmed": [],   # fylls på av press-matchning
+                "confirmed": [],
             }
     return delta
 
 
-def enrich_with_press(delta, press_signals, tenant_data):
-    """
-    Korsreferera delta mot pressreleaser.
-    Om ett borta-bolag nämns i en ny pressrelease → bekräftad flytt.
-    """
-    # Bygg press-index: bolagsnamn_lower -> [signal]
+def enrich_delta(delta, press):
     press_index = {}
-    for sig in press_signals:
+    for sig in press:
         for company in sig.get("companies", []):
-            key = company.lower().strip()
-            press_index.setdefault(key, []).append(sig)
+            press_index.setdefault(company.lower().strip(), []).append(sig)
 
-    enriched = 0
     for slug, d in delta.items():
         for tenant in d["gone"]:
             t_lower = tenant.lower().strip()
             for press_key, signals in press_index.items():
                 if len(press_key) > 5 and (press_key in t_lower or t_lower in press_key):
-                    # Matchar — lägg till bekräftelse
                     for sig in signals:
-                        if sig not in d["confirmed"]:
-                            d["confirmed"].append({
-                                "company":  tenant,
-                                "title":    sig["title"],
-                                "url":      sig["url"],
-                                "pub_date": sig["pub_date"],
-                                "source":   sig["source"],
-                                "property": sig.get("property"),
-                                "sqm":      sig.get("sqm"),
-                                "move_date":sig.get("move_date"),
-                            })
-                            enriched += 1
-
-    if enriched:
-        print(f"  Press-matchning: {enriched} bekräftade flytt-signaler")
+                        d["confirmed"].append({
+                            "company":  tenant,
+                            "title":    sig["title"],
+                            "url":      sig["url"],
+                            "pub_date": sig["pub_date"],
+                            "source":   sig["source"],
+                            "sqm":      sig.get("sqm"),
+                        })
     return delta
 
 
-# ── HTML-BUILD ────────────────────────────────────────────────────────────────
+# ── BYGG HTML ─────────────────────────────────────────────────────────────────
 
-def build_html(data, delta, press_signals):
-    template = TMPL.read_text(encoding="utf-8")
+def build_html(data, delta):
+    if not TMPL.exists():
+        sys.exit(f"Template saknas: {TMPL}")
 
-    # Bygg CONFIRMED_MOVES: slug -> lista med bekräftade flytt-objekt
-    confirmed_map = {}
-    for slug, d in delta.items():
-        if d.get("confirmed"):
-            confirmed_map[slug] = d["confirmed"]
+    tmpl = TMPL.read_text(encoding="utf-8")
 
-    data_json    = json.dumps(data, ensure_ascii=False)
-    delta_json   = json.dumps(delta, ensure_ascii=False)
+    confirmed_map = {slug: d["confirmed"] for slug, d in delta.items() if d.get("confirmed")}
+
+    data_json    = json.dumps(data,          ensure_ascii=False)
+    delta_json   = json.dumps(delta,         ensure_ascii=False)
     confirm_json = json.dumps(confirmed_map, ensure_ascii=False)
 
-    html = (template
-        .replace("%%DATA%%",      data_json)
-        .replace("%%BUILD_DATE%%", TODAY))
+    html = tmpl.replace("%%DATA%%", data_json).replace("%%BUILD_DATE%%", TODAY)
 
-    # Injicera delta och confirmed_map som JS-variabler
     inject = (
         f"var _DELTA_INIT = {delta_json};\n"
         f"var _CONFIRMED  = {confirm_json};\n"
@@ -207,27 +243,39 @@ def build_html(data, delta, press_signals):
     )
     html = html.replace(
         "var DELTA      = {};",
-        "var DELTA      = {};\nvar CONFIRMED  = {};\n" + inject
+        "var DELTA      = {};\nvar CONFIRMED  = {};\n" + inject,
+        1
     )
 
     OUT.write_text(html, encoding="utf-8")
-    print(f"\nHTML: {OUT}  ({len(html):,} tecken)")
+    print(f"\nindex.html: {len(html):,} tecken")
 
 
-def save_snapshot(data):
-    snap = {"date": TODAY, "data": {f["slug"]: f["tenants"] for f in data}}
-    SNAP_FILE.write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Snapshot: {SNAP_FILE}")
-
+# ── MAIN ──────────────────────────────────────────────────────────────────────
 
 def main():
-    print(f"FlyttSignal build — {TODAY}")
-    print("=" * 45)
+    print(f"FlyttSignal — {TODAY}")
+    print("=" * 40)
 
-    # 1. Hyresgäster
-    data = scrape_tenants()
+    # 1. Scrapa hyresgäster
+    print("\n== Castellum ==")
+    links = get_links()
+    print(f"  {len(links)} fastigheter hittade")
+    data = []
+    for i, url in enumerate(links):
+        result = scrape_property(url)
+        if result:
+            data.append(result)
+        if (i + 1) % 20 == 0:
+            print(f"  {i+1}/{len(links)} klara...")
+        time.sleep(0.1)
+
     total_t = sum(len(f["tenants"]) for f in data)
-    print(f"\nTotalt: {len(data)} fastigheter, {total_t} hyresgäster")
+    print(f"  Resultat: {len(data)} fastigheter, {total_t} hyresgäster")
+
+    if not data:
+        print("VARNING: Ingen data hämtad -- avbryter")
+        sys.exit(1)
 
     # 2. Delta
     delta = {}
@@ -237,26 +285,27 @@ def main():
         delta = compute_delta(data, prev)
         n_gone  = sum(len(d["gone"])  for d in delta.values())
         n_added = sum(len(d["added"]) for d in delta.values())
-        print(f"Delta: {len(delta)} fastigheter med ändringar ({n_gone} borta, {n_added} nya)")
+        print(f"Delta: {len(delta)} fastigheter ({n_gone} borta, {n_added} nya)")
 
-    # 3. Pressreleaser (senaste 90 dagarna)
-    cutoff = (datetime.date.today() - datetime.timedelta(days=90)).isoformat()
+    # 3. Pressreleaser
     print("\n== Pressreleaser ==")
-    press = scrape_all_press(since_date=cutoff)
+    press = scrape_press()
     print(f"  {len(press)} relevanta pressreleaser")
-    PRESS_FILE.write_text(json.dumps(press, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # 4. Berika delta med press-bekräftelse
+    # 4. Berika delta
     if delta and press:
-        print("\n== Press-matchning ==")
-        delta = enrich_with_press(delta, press, data)
+        delta = enrich_delta(delta, press)
+        n_conf = sum(len(d["confirmed"]) for d in delta.values())
+        if n_conf:
+            print(f"  {n_conf} bekräftade flytt-signaler")
 
     # 5. Bygg HTML
-    build_html(data, delta, press)
+    build_html(data, delta)
 
-    # 6. Spara ny snapshot
-    save_snapshot(data)
-
+    # 6. Spara snapshot
+    snap = {"date": TODAY, "data": {f["slug"]: f["tenants"] for f in data}}
+    SNAP_FILE.write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Snapshot sparad: {SNAP_FILE}")
     print("\nKlar!")
 
 
