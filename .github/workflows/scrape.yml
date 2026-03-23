@@ -1,12 +1,16 @@
-name: FlyttSignal — Scrape och deploy
+name: FlyttSignal — Scrape och publicera
 
 on:
   schedule:
     # Varje måndag 06:00 UTC (08:00 svensk tid)
     - cron: '0 6 * * 1'
   workflow_dispatch:
-    # Tillåter manuell körning från GitHub-gränssnittet
-    # Gå till repot → Actions → FlyttSignal → Run workflow
+    # Kör manuellt: Actions → FlyttSignal → Run workflow
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build-and-deploy:
@@ -27,21 +31,17 @@ jobs:
       - name: Kör scraper och bygg index.html
         run: python build_final.py
 
-      - name: Spara snapshot tillbaka till repot
+      - name: Spara snapshot i repot
         run: |
           git config user.name "FlyttSignal Bot"
           git config user.email "bot@flyttsignal"
-          git add snapshot_prev.json press_signals.json || true
-          git diff --staged --quiet || git commit -m "Snapshot $(date +%Y-%m-%d)"
+          git add index.html snapshot_prev.json press_signals.json || true
+          git diff --staged --quiet || git commit -m "Auto: $(date +%Y-%m-%d)"
           git push || true
 
-      - name: Ladda upp index.html till GoDaddy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      - name: Publicera på GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          server:     ${{ secrets.FTP_SERVER }}
-          username:   ${{ secrets.FTP_USER }}
-          password:   ${{ secrets.FTP_PASS }}
-          local-dir:  ./
-          server-dir: /public_html/flyttsignal/
-          include: |
-            index.html
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          include_files: index.html
