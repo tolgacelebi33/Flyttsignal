@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="sv" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="FlyttSignal — Identifiera bolag som planerar kontorsflytt i Stockholm">
+<title>FlyttSignal — Kontorsflytt-signaler i Stockholm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --bg:       #f5f2ee;
+  --bg2:      #ece8e2;
+  --sf:       #ffffff;
+  --sf2:      #faf8f5;
+  --bd:       #ddd8d1;
+  --bd2:      #c0b9b0;
+  --tx:       #1c1917;
+  --tx2:      #57534e;
+  --tx3:      #a8a09a;
+  --ac:       #b5411a;
+  --ac2:      #7c2d12;
+  --acs:      #fef2ee;
+  --g:        #166534;
+  --gs:       #dcfce7;
+  --r:        #991b1b;
+  --rs:       #fef2f2;
+  --am:       #92400e;
+  --ams:      #fffbeb;
+  --chip:     #e8e3db;
+  --sh:       0 1px 2px rgba(0,0,0,.06), 0 3px 12px rgba(0,0,0,.05);
+  --sh2:      0 2px 8px rgba(0,0,0,.1),  0 8px 28px rgba(0,0,0,.09);
+  --t:        .15s ease;
+}
+[data-theme=dark] {
+  --bg:       #0f0e0d;
+  --bg2:      #171614;
+  --sf:       #1e1c1a;
+  --sf2:      #242220;
+  --bd:       #302e2b;
+  --bd2:      #433f3a;
+  --tx:       #f0ebe4;
+  --tx2:      #a09890;
+  --tx3:      #5c5650;
+  --ac:       #ea6035;
+  --ac2:      #c04f27;
+  --acs:      #2c1408;
+  --g:        #15803d;
+  --gs:       #052e16;
+  --r:        #dc2626;
+  --rs:       #2c0a0a;
+  --am:       #d97706;
+  --ams:      #1c1000;
+  --chip:     #2a2725;
+  --sh:       0 1px 2px rgba(0,0,0,.3), 0 3px 12px rgba(0,0,0,.25);
+  --sh2:      0 2px 8px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35);
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--tx);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+  transition: background var(--t), color var(--t);
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--sf);
+  border-bottom: 1px solid var(--bd);
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--sh);
+}
+.logo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.logo-name {
+  font-family: 'Instrument Serif', serif;
+  font-size: 20px;
+  letter-spacing: -.3px;
+  color: var(--tx);
+}
+.logo-name em { color: var(--ac); font-style: normal; }
+.logo-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--tx3);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  border-left: 1px solid var(--bd);
+  padding-left: 8px;
+  margin-left: 2px;
+}
+.hdr-right { display: flex; align-items: center; gap: 10px; }
+
+.stat {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--tx3);
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: 100px;
+  padding: 3px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.stat b { color: var(--tx); font-weight: 500; }
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--g);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+.theme-toggle {
+  width: 32px; height: 32px;
+  border: 1px solid var(--bd);
+  border-radius: 6px;
+  background: var(--bg2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  transition: all var(--t);
+  flex-shrink: 0;
+}
+.theme-toggle:hover { background: var(--sf2); border-color: var(--bd2); }
+
+/* ── LAYOUT ── */
+.layout {
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  min-height: calc(100vh - 54px);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--sf);
+  border-right: 1px solid var(--bd);
+  padding: 20px 14px;
+  position: sticky;
+  top: 54px;
+  height: calc(100vh - 54px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.sb-section { display: flex; flex-direction: column; gap: 8px; }
+
+.sb-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: .13em;
+  color: var(--tx3);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--bd);
+}
+
+.search-wrap { position: relative; }
+.search-wrap svg {
+  position: absolute;
+  left: 9px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--tx3);
+  pointer-events: none;
+}
+input[type=text], select {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: 7px;
+  padding: 7px 9px 7px 30px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--tx);
+  outline: none;
+  transition: border-color var(--t), background var(--t);
+  appearance: none;
+  -webkit-appearance: none;
+}
+select { padding-left: 9px; }
+input[type=text]:focus, select:focus {
+  border-color: var(--ac);
+  background: var(--sf);
+}
+input::placeholder { color: var(--tx3); }
+
+.filter-stack { display: flex; flex-direction: column; gap: 5px; }
+
+.btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  border-radius: 7px;
+  padding: 6px 11px;
+  cursor: pointer;
+  transition: all var(--t);
+  width: 100%;
+  text-align: center;
+  font-weight: 500;
+  border: 1px solid;
+}
+.btn-ghost { color: var(--tx3); background: none; border-color: var(--bd); }
+.btn-ghost:hover { color: var(--ac); border-color: var(--ac); }
+.btn-green { color: var(--g); background: var(--gs); border-color: var(--g); }
+.btn-green:hover { opacity: .8; }
+.btn-green:disabled { opacity: .45; cursor: not-allowed; }
+.btn-amber { color: var(--am); background: var(--ams); border-color: var(--am); }
+.btn-amber:hover { opacity: .8; }
+.btn-amber:disabled { opacity: .45; cursor: not-allowed; }
+
+.source-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--tx3);
+  padding: 5px 9px;
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: 6px;
+}
+.source-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--g); flex-shrink: 0; }
+.source-name { font-family: 'DM Mono', monospace; font-size: 11px; }
+
+.meta-note {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--tx3);
+  line-height: 1.9;
+}
+.meta-note b { color: var(--tx2); }
+
+.delta-box {
+  background: var(--ams);
+  border: 1px solid var(--am);
+  border-radius: 7px;
+  padding: 9px 11px;
+  font-size: 10.5px;
+  color: var(--am);
+  font-family: 'DM Mono', monospace;
+  line-height: 1.65;
+  display: flex; gap: 7px; align-items: flex-start;
+}
+.delta-box svg { flex-shrink: 0; margin-top: 1px; }
+
+/* Delta results panel */
+.delta-results {
+  background: var(--rs);
+  border: 1px solid var(--r);
+  border-radius: 7px;
+  padding: 10px 11px;
+  display: none;
+}
+.delta-results.show { display: block; }
+.delta-results-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 13px;
+  color: var(--r);
+  margin-bottom: 7px;
+}
+.delta-item {
+  font-size: 10.5px;
+  font-family: 'DM Mono', monospace;
+  color: var(--tx2);
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  line-height: 1.7;
+}
+.delta-item:last-child { border-bottom: none; }
+
+.sig-tag {
+  display: inline-block;
+  font-size: 9.5px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 500;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin: 0 3px;
+}
+.sig-gone { background: var(--rs); color: var(--r); border: 1px solid var(--r); }
+.sig-new  { background: var(--gs); color: var(--g); border: 1px solid var(--g); }
+
+.scrape-prog {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--am);
+  margin-top: 4px;
+  display: none;
+  line-height: 1.6;
+}
+
+/* Snapshot IO */
+.snap-actions { display: flex; gap: 5px; }
+.snap-actions .btn { flex: 1; font-size: 10px; padding: 5px 7px; }
+
+/* ── MAIN ── */
+main { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.toolbar-left { display: flex; align-items: center; gap: 12px; }
+.result-count {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--tx3);
+}
+.result-count b {
+  font-family: 'Instrument Serif', serif;
+  font-size: 19px;
+  color: var(--tx);
+  font-weight: 400;
+  margin-right: 2px;
+}
+
+.tab-row {
+  display: flex; gap: 2px;
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: 7px;
+  padding: 3px;
+}
+.tab {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  border: none;
+  background: none;
+  color: var(--tx3);
+  padding: 4px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all var(--t);
+}
+.tab.on { background: var(--sf); color: var(--tx); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.tab.alert { color: var(--r); font-weight: 500; }
+
+.sort-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--tx3); }
+.sort-row select { width: auto; padding: 4px 7px; font-size: 11px; border-radius: 6px; }
+
+/* ── CARDS ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.card {
+  background: var(--sf);
+  border: 1px solid var(--bd);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow var(--t), border-color var(--t), transform var(--t);
+  animation: slideUp .2s ease both;
+}
+.card:hover { box-shadow: var(--sh2); border-color: var(--bd2); transform: translateY(-1px); }
+.card.open { grid-column: 1 / -1; border-color: var(--ac); }
+.card.signalled{border-left:3px solid var(--r);border-color:var(--r)}
+.card.confirmed{border-left:4px solid var(--r);border-color:var(--r);box-shadow:0 0 0 1px var(--r)}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.card-head {
+  padding: 13px 15px 11px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  user-select: none;
+}
+.card-icon {
+  width: 34px; height: 34px;
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  color: var(--tx2);
+}
+.card-meta { flex: 1; min-width: 0; }
+.card-name {
+  font-family: 'Instrument Serif', serif;
+  font-size: 15px;
+  color: var(--tx);
+  line-height: 1.25;
+  margin-bottom: 2px;
+}
+.card-address {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--tx3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 5px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge-normal { color: var(--ac); background: var(--acs); border: 1px solid var(--ac); }
+.badge-signal { color: var(--r);  background: var(--rs);  border: 1px solid var(--r);  }
+
+/* Chips row */
+.chips-row {
+  padding: 0 15px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.chip {
+  font-size: 11px;
+  color: var(--tx2);
+  background: var(--chip);
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--bd);
+  white-space: nowrap;
+  max-width: 165px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip.hl   { background: var(--gs); color: var(--g); border-color: var(--g); font-weight: 500; }
+.chip.gone { background: var(--rs); color: var(--r); border-color: var(--r); text-decoration: line-through; }
+.chip.newt { background: var(--gs); color: var(--g); border-color: var(--g); }
+.chip.more { color: var(--tx3); font-style: italic; background: none; border-color: transparent; }
+
+/* Card footer */
+.card-footer {
+  padding: 8px 15px;
+  border-top: 1px solid var(--bd);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--sf2);
+}
+.card-source {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  color: var(--tx3);
+}
+.card-actions { display: flex; gap: 5px; }
+.act-btn {
+  font-size: 11px;
+  text-decoration: none;
+  border: 1px solid var(--bd);
+  border-radius: 5px;
+  padding: 3px 8px;
+  transition: all var(--t);
+  background: var(--sf);
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--tx3);
+}
+.act-btn:hover { color: var(--tx); border-color: var(--bd2); background: var(--bg2); }
+.act-btn.primary { color: var(--ac); border-color: var(--ac); }
+.act-btn.primary:hover { background: var(--acs); }
+
+/* ── EXPANDED PANEL ── */
+.expanded-panel {
+  display: none;
+  padding: 16px;
+  border-top: 1px solid var(--bd);
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.card.open .expanded-panel { display: grid; }
+
+.panel-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--tx3);
+  margin-bottom: 8px;
+}
+
+.tenant-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.tenant-chip {
+  font-size: 12px;
+  color: var(--tx2);
+  background: var(--chip);
+  border: 1px solid var(--bd);
+  border-radius: 4px;
+  padding: 3px 8px;
+  transition: background var(--t);
+}
+.tenant-chip:hover { background: var(--bg2); color: var(--tx); }
+.tenant-chip.gone { background: var(--rs); color: var(--r); border-color: var(--r); text-decoration: line-through; }
+.tenant-chip.newt { background: var(--gs); color: var(--g); border-color: var(--g); }
+
+.delta-detail {
+  margin-top: 12px;
+  padding: 9px 11px;
+  background: var(--rs);
+  border: 1px solid var(--r);
+  border-radius: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.delta-detail .gone-section { color: var(--r); }
+.delta-detail .new-section  { color: var(--g); margin-top: 6px; }
+
+.ext-links { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.ext-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px;
+  color: var(--tx);
+  text-decoration: none;
+  border: 1px solid var(--bd);
+  border-radius: 6px;
+  padding: 4px 9px;
+  transition: all var(--t);
+  background: var(--sf);
+}
+.ext-link:hover { border-color: var(--bd2); background: var(--bg2); transform: translateY(-1px); }
+
+.contact-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--t);
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--bd);
+  background: var(--sf);
+  color: var(--tx3);
+}
+.contact-btn:hover { border-color: var(--g); color: var(--g); }
+.contact-btn.done { border-color: var(--g); background: var(--gs); color: var(--g); }
+
+.prop-meta {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px;
+  color: var(--tx3);
+  line-height: 2;
+  margin-top: 12px;
+}
+.prop-meta span { color: var(--tx2); }
+
+/* ── EMPTY STATE ── */
+.empty {
+  grid-column: 1 / -1;
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--tx3);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+}
+.empty strong {
+  display: block;
+  font-family: 'Instrument Serif', serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--tx2);
+  margin-bottom: 8px;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 820px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--bd); }
+  .expanded-panel { grid-template-columns: 1fr; }
+  .logo-tag { display: none; }
+}
+
+/* SIGNAL LEVELS */
+.badge-confirmed{color:var(--r);background:var(--rs);border:1.5px solid var(--r);font-weight:600}
+.confirmed-box{margin-top:12px;padding:10px 12px;background:var(--rs);border:1.5px solid var(--r);border-radius:7px;font-family:"DM Mono",monospace;font-size:11px;line-height:1.8}
+.conf-header{font-family:"Instrument Serif",serif;font-size:13px;color:var(--r);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.conf-company{color:var(--r);font-weight:500}
+.conf-meta{color:var(--tx3);font-size:10px}
+.conf-link{display:inline-flex;align-items:center;gap:3px;color:var(--r);text-decoration:none;font-size:10px;border:1px solid var(--r);border-radius:4px;padding:1px 6px;margin-top:3px;transition:all var(--t)}
+.conf-link:hover{background:var(--rs)}
+.signal-pill{display:inline-flex;align-items:center;gap:4px;font-family:"DM Mono",monospace;font-size:10px;border-radius:4px;padding:2px 7px;white-space:nowrap}
+.pill-confirmed{background:var(--rs);color:var(--r);border:1px solid var(--r);font-weight:600}
+.pill-possible{background:var(--ams);color:var(--am);border:1px solid var(--am)}
+.pill-new{background:var(--gs);color:var(--g);border:1px solid var(--g)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <span class="logo-name">Flytt<em>Signal</em></span>
+    <span class="logo-tag">Stockholm</span>
+  </div>
+  <div class="hdr-right">
+    <div class="stat">
+      <div class="live-dot"></div>
+      <b id="statFastig">—</b>&nbsp;fastigheter
+    </div>
+    <div class="stat">
+      <b id="statHyres">—</b>&nbsp;hyresgäster
+    </div>
+    <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="Ljust / mörkt läge">🌙</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="sb-section">
+      <div class="sb-label">Sök</div>
+      <div class="search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Bolag, fastighet, adress…" oninput="applyFilters()">
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-label">Filtrera</div>
+      <div class="filter-stack">
+        <select id="sourceFilter" onchange="applyFilters()">
+          <option value="">Alla fastighetsägare</option>
+          <option value="Castellum">Castellum</option>
+          <option value="Vasakronan">Vasakronan</option>
+          <option value="Fabege">Fabege</option>
+        </select>
+        <select id="areaFilter" onchange="applyFilters()">
+          <option value="">Alla områden</option>
+        </select>
+        <select id="sizeFilter" onchange="applyFilters()">
+          <option value="">Alla storlekar</option>
+          <option value="s">1–5 hyresgäster</option>
+          <option value="m">6–15 hyresgäster</option>
+          <option value="l">16–30 hyresgäster</option>
+          <option value="xl">31+ hyresgäster</option>
+        </select>
+        <button class="btn btn-ghost" onclick="resetFilters()">↺ Återställ filter</button>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-label">Datakällor</div>
+      <div class="source-row"><div class="source-dot"></div><span class="source-name">Castellum Stockholm</span></div>
+      <div class="source-row" style="opacity:.5"><div class="source-dot" style="background:var(--am)"></div><span class="source-name">Vasakronan — snart</span></div>
+      <div class="source-row" style="opacity:.5"><div class="source-dot" style="background:var(--am)"></div><span class="source-name">Fabege — snart</span></div>
+      <div class="meta-note" id="metaNote">
+        Uppdaterad <b>2026-03-23</b>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-label">Delta-detektion</div>
+      <div class="snap-actions">
+        <button class="btn btn-green" id="saveSnapBtn" onclick="saveSnapshot()" title="Spara aktuell data som referens-snapshot">&#128190; Spara snapshot</button>
+        <button class="btn btn-ghost" id="exportSnapBtn" onclick="exportSnapshot()" title="Exportera snapshot som JSON-fil">&#8595; Exportera</button>
+      </div>
+      <label class="btn btn-ghost" style="cursor:pointer;text-align:center;font-size:11px" title="Importera en tidigare sparad snapshot">
+        &#8593; Importera snapshot
+        <input type="file" accept=".json" id="importFile" style="display:none" onchange="importSnapshot(event)">
+      </label>
+      <div class="scrape-prog" id="scrapeProg"></div>
+      <div class="delta-results" id="deltaResults">
+        <div class="delta-results-title" id="deltaTitle">Flytt-signaler</div>
+        <div id="deltaList"></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="result-count">Visar <b id="visCount">—</b> fastigheter</div>
+        <div class="tab-row">
+          <button class="tab on" id="tabAll" onclick="setView('all')">Alla</button>
+          <button class="tab" id="tabDelta" onclick="setView('delta')">
+            Flytt-signaler <span id="deltaCount"></span>
+          </button>
+        </div>
+      </div>
+      <div class="sort-row">
+        Sortera:
+        <select id="sortSelect" onchange="applyFilters()">
+          <option value="desc">Flest hyresgäster</option>
+          <option value="asc">Färst hyresgäster</option>
+          <option value="name">Namn A–Ö</option>
+          <option value="source">Fastighetsägare</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid" id="cardsGrid"></div>
+  </main>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// DATA — injected at build time
+// ─────────────────────────────────────────────
+var DATA = [];
+var BUILD_DATE = '2026-03-23';
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+var contacted  = new Set(JSON.parse(localStorage.getItem('fs_contacted') || '[]'));
+var expanded   = null;
+var currentView = 'all';
+var DELTA      = {};
+var CONFIRMED  = {};
+var _DELTA_INIT = {};
+var _CONFIRMED  = {};
+setTimeout(function(){
+  DELTA = _DELTA_INIT;
+  CONFIRMED = _CONFIRMED;
+  updateDeltaPanel();
+  applyFilters();
+}, 50);
+ // { slug: { gone:[], added:[], snapDate:'' } }
+
+// ─────────────────────────────────────────────
+// THEME
+// ─────────────────────────────────────────────
+function toggleTheme() {
+  var h = document.documentElement;
+  var isDark = h.dataset.theme === 'dark';
+  h.dataset.theme = isDark ? 'light' : 'dark';
+  document.getElementById('themeBtn').textContent = isDark ? '\u{1F319}' : '\u2600\uFE0F';
+  localStorage.setItem('fs_theme', isDark ? 'light' : 'dark');
+}
+(function initTheme() {
+  var saved = localStorage.getItem('fs_theme');
+  if (saved === 'dark') {
+    document.documentElement.dataset.theme = 'dark';
+    document.getElementById('themeBtn').textContent = '\u2600\uFE0F';
+  }
+})();
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+function init() {
+  document.getElementById('statFastig').textContent = DATA.length;
+  document.getElementById('statHyres').textContent = DATA.reduce(function(s,f){ return s + f.tenants.length; }, 0);
+  document.getElementById('metaNote').innerHTML = 'Uppdaterad <b>' + BUILD_DATE + '</b><br>' + DATA.length + ' fastigheter indexerade';
+
+  // Populate area filter — extract area from name prefix
+  var areas = Array.from(new Set(DATA.map(function(f) { return getArea(f.name); }))).sort();
+  var asel = document.getElementById('areaFilter');
+  areas.forEach(function(a) {
+    var o = document.createElement('option');
+    o.value = a; o.textContent = a; asel.appendChild(o);
+  });
+
+  loadDelta();
+  applyFilters();
+}
+
+function getArea(name) {
+  // Extract city/district prefix before first space-separated property name
+  // Works for "Danderyd Bergudden 8", "Stockholm Kista One", etc.
+  var m = name.match(/^([\u00C0-\u024F\w][\u00C0-\u024F\w\-]*)/);
+  return m ? m[1] : 'Övriga';
+}
+
+// ─────────────────────────────────────────────
+// VIEW TABS
+// ─────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  var nDelta = Object.keys(DELTA).length;
+  document.getElementById('tabAll').className   = 'tab' + (v === 'all'   ? ' on' : '');
+  document.getElementById('tabDelta').className = 'tab' + (v === 'delta' ? ' on' : '') + (nDelta > 0 ? ' alert' : '');
+  applyFilters();
+}
+
+// ─────────────────────────────────────────────
+// FILTERS + SORT
+// ─────────────────────────────────────────────
+function applyFilters() {
+  var q      = document.getElementById('searchInput').value.toLowerCase().trim();
+  var src    = document.getElementById('sourceFilter').value;
+  var area   = document.getElementById('areaFilter').value;
+  var size   = document.getElementById('sizeFilter').value;
+  var sort   = document.getElementById('sortSelect').value;
+
+  var data = DATA.filter(function(f) {
+    if (currentView === 'delta' && !DELTA[f.slug]) return false;
+    if (src  && f.source !== src)              return false;
+    if (area && getArea(f.name) !== area)      return false;
+    var n = f.tenants.length;
+    if (size === 's'  && !(n >= 1  && n <= 5))  return false;
+    if (size === 'm'  && !(n >= 6  && n <= 15)) return false;
+    if (size === 'l'  && !(n >= 16 && n <= 30)) return false;
+    if (size === 'xl' && n < 31)                return false;
+    if (q) {
+      var nameMatch   = f.name.toLowerCase().includes(q) || f.address.toLowerCase().includes(q);
+      var tenantMatch = f.tenants.some(function(t) { return t.toLowerCase().includes(q); });
+      if (!nameMatch && !tenantMatch) return false;
+    }
+    return true;
+  });
+
+  if (sort === 'desc')   data.sort(function(a,b){ return b.tenants.length - a.tenants.length; });
+  else if (sort === 'asc') data.sort(function(a,b){ return a.tenants.length - b.tenants.length; });
+  else if (sort === 'name') data.sort(function(a,b){ return a.name.localeCompare(b.name, 'sv'); });
+  else if (sort === 'source') data.sort(function(a,b){ return (a.source||'').localeCompare(b.source||''); });
+
+  document.getElementById('visCount').textContent = data.length;
+  renderCards(data, q);
+}
+
+function resetFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('sourceFilter').value = '';
+  document.getElementById('areaFilter').value = '';
+  document.getElementById('sizeFilter').value = '';
+  document.getElementById('sortSelect').value = 'desc';
+  applyFilters();
+}
+
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+var CONFIRMED = {};
+
+function getSignalLevel(slug, delta) {
+  var conf = CONFIRMED[slug] && CONFIRMED[slug].length > 0;
+  var gone = delta && delta.gone && delta.gone.length > 0;
+  if (conf && gone) return 'confirmed';
+  if (gone)         return 'possible';
+  if (delta && delta.added && delta.added.length > 0) return 'new';
+  return 'none';
+}
+
+function signalPillHtml(level, nGone, nAdded) {
+  if (level === 'confirmed') return '<span class="signal-pill pill-confirmed">&#9888; Bekr&#xE4;ftad flytt</span>';
+  if (level === 'possible')  return '<span class="signal-pill pill-possible">&#8595; ' + nGone + ' ledigst&#xE4;llt</span>';
+  if (level === 'new')       return '<span class="signal-pill pill-new">&#8593; ' + nAdded + ' nya</span>';
+  return '';
+}
+
+function confirmedBoxHtml(slug) {
+  var sigs = CONFIRMED[slug];
+  if (!sigs || !sigs.length) return '';
+  var h = '<div class="confirmed-box"><div class="conf-header"><span>&#128240;</span>Bekr&#xE4;ftad via pressrelease</div>';
+  sigs.forEach(function(s) {
+    h += '<div><span class="conf-company">' + esc(s.company) + '</span> &mdash; ';
+    h += '<span class="conf-meta">' + esc(s.source||'') + ', ' + (s.pub_date||'') + '</span>';
+    if (s.property) h += '<br>&#8627; Ny lokal: <b>' + esc(s.property) + '</b>';
+    if (s.sqm)      h += ' (' + Number(s.sqm).toLocaleString('sv') + '&nbsp;kvm)';
+    if (s.move_date)h += '<br>&#8627; Tilltr&#xE4;de: <b>' + esc(s.move_date) + '</b>';
+    h += '<br><a href="' + esc(s.url) + '" target="_blank" class="conf-link">&#8599; L&#xE4;s pressrelease</a></div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function renderCards(data, q) {
+  var grid = document.getElementById('cardsGrid');
+  grid.innerHTML = '';
+
+  if (!data.length) {
+    grid.innerHTML = '<div class="empty"><strong>Inga resultat</strong>Prova ett annat sökord eller återställ filtren.</div>';
+    return;
+  }
+
+  data.forEach(function(f, i) {
+    var delta   = DELTA[f.slug] || null;
+    var isDone  = contacted.has(f.slug);
+    var isOpen  = expanded === f.slug;
+    var hasSig  = delta && delta.gone.length > 0;
+
+    var card = document.createElement('div');
+    card.className = 'card' + (isOpen ? ' open' : '') + (sigLevel !== 'none' ? ' signalled' : '') + (sigLevel === 'confirmed' ? ' confirmed' : '');
+    card.style.animationDelay = Math.min(i * 12, 220) + 'ms';
+    card.dataset.slug = f.slug;
+
+    // Preview chips (max 5)
+    var previewTenants = f.tenants.slice(0, 5);
+    var remainder = f.tenants.length - 5;
+    var chipsHtml = previewTenants.map(function(t) {
+      var isGone = delta && delta.gone.indexOf(t) >= 0;
+      var isNew  = delta && delta.added.indexOf(t) >= 0;
+      var isHL   = !isGone && !isNew && q && t.toLowerCase().indexOf(q) >= 0;
+      var cls = 'chip' + (isGone ? ' gone' : isNew ? ' newt' : isHL ? ' hl' : '');
+      return '<span class="' + cls + '" title="' + esc(t) + '">' + esc(t) + '</span>';
+    }).join('') + (remainder > 0 ? '<span class="chip more">+' + remainder + ' till</span>' : '');
+
+    // All tenant chips for expanded panel
+    var allChipsHtml = f.tenants.map(function(t) {
+      var isGone = delta && delta.gone.indexOf(t) >= 0;
+      var isNew  = delta && delta.added.indexOf(t) >= 0;
+      var cls = 'tenant-chip' + (isGone ? ' gone' : isNew ? ' newt' : '');
+      return '<span class="' + cls + '">' + esc(t) + '</span>';
+    }).join('');
+
+    // Badge
+    var sigLevel = getSignalLevel(f.slug, delta);
+    var badgeHtml;
+    if (sigLevel === 'confirmed')
+      badgeHtml = '<span class="card-badge badge-confirmed">&#9888; Bekr&#xE4;ftad flytt</span>';
+    else if (sigLevel === 'possible')
+      badgeHtml = '<span class="card-badge badge-signal">&#8595; ' + delta.gone.length + ' borta</span>';
+    else
+      badgeHtml = '<span class="card-badge badge-normal">' + f.tenants.length + '</span>';
+    var signalPill = signalPillHtml(sigLevel, delta ? delta.gone.length : 0, delta ? delta.added.length : 0);
+
+    // Delta detail block
+    var deltaDetailHtml = '';
+    if (delta && (delta.gone.length > 0 || delta.added.length > 0)) {
+      deltaDetailHtml = '<div class="delta-detail">';
+      if (delta.gone.length > 0) {
+        deltaDetailHtml += '<div class="gone-section"><b>Borta sedan ' + esc(delta.snapDate) + ':</b><br>' + delta.gone.map(esc).join('<br>') + '</div>';
+      }
+      if (delta.added.length > 0) {
+        deltaDetailHtml += '<div class="new-section"><b>Nya hyresgäster:</b><br>' + delta.added.map(esc).join('<br>') + '</div>';
+      }
+      deltaDetailHtml += '</div>';
+    }
+
+    // External search links
+    var enc = encodeURIComponent(f.name.replace(/\s*\([^)]+\)/g, '').trim());
+    var extLinksHtml =
+      '<a href="https://allabolag.se/search/hits?query=' + enc + '" target="_blank" class="ext-link">\uD83D\uDD0E Allabolag</a>' +
+      '<a href="https://www.linkedin.com/search/results/companies/?keywords=' + enc + '" target="_blank" class="ext-link">\uD83D\uDCBC LinkedIn</a>' +
+      '<a href="' + esc(f.url) + '" target="_blank" class="ext-link">\uD83C\uDFE2 ' + esc(f.source || 'Källa') + '</a>' +
+      '<a href="https://www.google.com/search?q=' + enc + '+kontor+Stockholm" target="_blank" class="ext-link">\uD83C\uDF10 Google</a>';
+
+    var srcIcon = { Castellum: '&#9632;', Vasakronan: '&#9671;', Fabege: '&#9650;' };
+
+    card.innerHTML =
+      '<div class="card-head" onclick="toggleCard(\'' + f.slug + '\')">' +
+        '<div class="card-icon">&#x1F3E2;</div>' +
+        '<div class="card-meta">' +
+          '<div class="card-name">' + esc(f.name) + '</div>' +
+          '<div class="card-address">' + esc(f.address) + '</div>' +
+        '</div>' +
+        badgeHtml +
+      '</div>' +
+      '<div class="chips-row">' + chipsHtml + (signalPill ? '<span style="margin-left:4px">' + signalPill + '</span>' : '') + '</div>' +
+      '<div class="card-footer">' +
+        '<div class="card-source">' + (srcIcon[f.source] || '') + ' ' + esc(f.source || '') + '</div>' +
+        '<div class="card-actions">' +
+          '<a href="' + esc(f.url) + '" target="_blank" class="act-btn" onclick="event.stopPropagation()">' + esc(f.source||'') + ' \u2197</a>' +
+          '<button class="act-btn primary" onclick="toggleCard(\'' + f.slug + '\');event.stopPropagation()">' + (isOpen ? '\u2191 St\u00E4ng' : '\u2193 Detaljer') + '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="expanded-panel">' +
+        '<div>' +
+          '<div class="panel-label">Alla hyresgäster (' + f.tenants.length + ')</div>' +
+          '<div class="tenant-list">' + allChipsHtml + '</div>' +
+          deltaDetailHtml +
+          confirmedBoxHtml(f.slug) +
+          '<button class="contact-btn' + (isDone ? ' done' : '') + '" onclick="toggleContacted(\'' + f.slug + '\')">' +
+            (isDone ? '\u2713 Kontaktad' : '\u25CB Markera kontaktad') +
+          '</button>' +
+        '</div>' +
+        '<div>' +
+          '<div class="panel-label">Sök vidare</div>' +
+          '<div class="ext-links">' + extLinksHtml + '</div>' +
+          '<div class="prop-meta" style="margin-top:14px">' +
+            '<div class="panel-label" style="margin-bottom:6px">Fastighetsinfo</div>' +
+            '<div>Adress: <span>' + esc(f.address) + '</span></div>' +
+            '<div>K\u00e4lla: <span>' + esc(f.source || '') + '</span></div>' +
+            '<div>Indexerad: <span>' + BUILD_DATE + '</span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    grid.appendChild(card);
+  });
+}
+
+// ─────────────────────────────────────────────
+// CARD INTERACTION
+// ─────────────────────────────────────────────
+function toggleCard(slug) {
+  expanded = expanded === slug ? null : slug;
+  applyFilters();
+  if (expanded) {
+    setTimeout(function() {
+      var el = document.querySelector('[data-slug="' + expanded + '"]');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 40);
+  }
+}
+
+function toggleContacted(slug) {
+  if (contacted.has(slug)) contacted.delete(slug);
+  else contacted.add(slug);
+  localStorage.setItem('fs_contacted', JSON.stringify(Array.from(contacted)));
+  applyFilters();
+}
+
+// ─────────────────────────────────────────────
+// SNAPSHOT — SAVE / EXPORT / IMPORT
+// ─────────────────────────────────────────────
+function saveSnapshot() {
+  var snap = { date: new Date().toISOString().slice(0, 10), data: {} };
+  DATA.forEach(function(f) { snap.data[f.slug] = f.tenants.slice(); });
+  localStorage.setItem('fs_snapshot', JSON.stringify(snap));
+  var btn = document.getElementById('saveSnapBtn');
+  btn.textContent = '\u2713 Sparad (' + snap.date + ')';
+  btn.style.opacity = '.65';
+  setTimeout(function() {
+    btn.textContent = '\uD83D\uDCBE Spara snapshot';
+    btn.style.opacity = '1';
+  }, 2500);
+}
+
+function exportSnapshot() {
+  var raw = localStorage.getItem('fs_snapshot');
+  if (!raw) { alert('Ingen snapshot sparad \u2014 spara en snapshot f\u00f6rst.'); return; }
+  var blob = new Blob([raw], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'flyttsignal-snapshot-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+}
+
+function importSnapshot(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var snap = JSON.parse(ev.target.result);
+      if (!snap.date || !snap.data) throw new Error('Ogiltig snapshot-fil');
+      localStorage.setItem('fs_snapshot', JSON.stringify(snap));
+      computeDelta(snap);
+      alert('Snapshot fr\u00e5n ' + snap.date + ' importerad. Delta-detektionen \u00e4r nu aktiv.');
+    } catch(err) {
+      alert('Kunde inte l\u00e4sa filen: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ─────────────────────────────────────────────
+// DELTA DETECTION
+// ─────────────────────────────────────────────
+function loadDelta() {
+  var raw = localStorage.getItem('fs_snapshot');
+  if (!raw) return;
+  computeDelta(JSON.parse(raw));
+}
+
+function computeDelta(snap) {
+  DELTA = {};
+  DATA.forEach(function(f) {
+    var old = snap.data[f.slug];
+    if (!old) return;
+    var gone  = old.filter(function(t) { return f.tenants.indexOf(t) === -1; });
+    var added = f.tenants.filter(function(t) { return old.indexOf(t) === -1; });
+    if (gone.length > 0 || added.length > 0) {
+      DELTA[f.slug] = { gone: gone, added: added, snapDate: snap.date };
+    }
+  });
+  updateDeltaPanel();
+}
+
+function updateDeltaPanel() {
+  var panel    = document.getElementById('deltaResults');
+  var list     = document.getElementById('deltaList');
+  var countEl  = document.getElementById('deltaCount');
+  var nDelta   = Object.keys(DELTA).length;
+  var tabDelta = document.getElementById('tabDelta');
+
+  if (nDelta === 0) {
+    panel.className = 'delta-results';
+    countEl.textContent = '';
+    tabDelta.className = 'tab';
+    return;
+  }
+
+  panel.className = 'delta-results show';
+  var nConf = Object.keys(CONFIRMED).length;
+  var dtitle = nDelta + ' fastigheter med &#xE4;ndringar';
+  if (nConf) dtitle += ' &mdash; ' + nConf + ' bekr&#xE4;ftade';
+  document.getElementById('deltaTitle').textContent = dtitle;
+  countEl.textContent = '(' + nDelta + ')';
+  tabDelta.className = 'tab alert';
+
+  var html = '';
+  Object.keys(DELTA).forEach(function(slug) {
+    var d = DELTA[slug];
+    var f = DATA.filter(function(x) { return x.slug === slug; })[0];
+    if (!f) return;
+    html += '<div class="delta-item"><b>' + esc(f.name) + '</b>';
+    d.gone.forEach(function(t) {
+      html += '<br>\u2193 <span class="sig-tag sig-gone">borta</span>' + esc(t);
+    });
+    d.added.forEach(function(t) {
+      html += '<br>\u2191 <span class="sig-tag sig-new">ny</span>' + esc(t);
+    });
+    html += '</div>';
+  });
+  list.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;');
+}
+
+// ─────────────────────────────────────────────
+// START
+// ─────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
