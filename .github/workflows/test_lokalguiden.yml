@@ -1,0 +1,37 @@
+name: Test Lokalguiden fetch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Installera Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Testa Lokalguiden
+        run: |
+          python3 - << 'EOF'
+          import requests
+
+          headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          }
+
+          url = "https://www.lokalguiden.se/lediga-lokaler/kontor/stockholm/"
+          r = requests.get(url, headers=headers, timeout=15)
+
+          print(f"Status: {r.status_code}")
+          print(f"HTML-längd: {len(r.text)}")
+          print(f"Fleminggatan i HTML: {'Fleminggatan' in r.text}")
+          print(f"Stockholm i HTML: {'Stockholm' in r.text}")
+
+          # Försök hitta en adress i HTML
+          import re
+          addresses = re.findall(r'[A-ZÅÄÖ][a-zåäö]+(?:gatan|vägen|gränd|torget|plan|stigen|backen|allén)\s+\d+', r.text)
+          print(f"Adresser hittade: {len(addresses)}")
+          print(f"Exempel: {addresses[:5]}")
+          EOF
