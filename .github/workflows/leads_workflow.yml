@@ -1,0 +1,43 @@
+name: FlyttSignal — Generera leads
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Varje måndag 08:00 svensk tid
+  workflow_dispatch:       # Kör manuellt vid behov
+
+permissions:
+  contents: write
+
+jobs:
+  generate-leads:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hämta repot
+        uses: actions/checkout@v4
+
+      - name: Installera Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installera beroenden
+        run: pip install requests beautifulsoup4
+
+      - name: Kör lead-generator
+        run: python flyttsignal_leads.py
+
+      - name: Spara leads och snapshot i repot
+        run: |
+          git config user.name "FlyttSignal Bot"
+          git config user.email "bot@flyttsignal"
+          git add leads.csv lokalguiden_snapshot.json || true
+          git diff --staged --quiet || git commit -m "Leads $(date +%Y-%m-%d)"
+          git push || true
+
+      - name: Ladda upp leads.csv som artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: leads-${{ github.run_id }}
+          path: leads.csv
+          retention-days: 30
