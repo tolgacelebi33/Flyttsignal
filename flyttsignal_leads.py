@@ -131,7 +131,7 @@ def load_bolagsverket():
                 except StopIteration:
                     continue
 
-                print(f"  Kolumner: {headers_row[:10]}")
+                print(f"  Alla kolumner ({len(headers_row)} st): {headers_row}")
 
                 # Bygg kolumnindex
                 col = {h.strip(): i for i, h in enumerate(headers_row)}
