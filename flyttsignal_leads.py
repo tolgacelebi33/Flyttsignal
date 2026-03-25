@@ -152,16 +152,8 @@ def load_bolagsverket():
                 idx_sni      = get_col("Ng1", "SNI", "SniKod")
 
                 print(f"  Adress-kolumn: {idx_adress}, Postort: {idx_postort}, Form: {idx_form}, Anst: {idx_anst}")
-                # Skriv ut 5 exempelrader för diagnostik
-                sample_count = 0
-                for sample_row in reader:
-                    if sample_count >= 5:
-                        break
-                    if len(sample_row) > max(filter(lambda x: x is not None, [idx_adress or 0, idx_postort or 0, idx_form or 0])):
-                        print(f"  Exempelrad: adress={sample_row[idx_adress] if idx_adress else '?'} | postort={sample_row[idx_postort] if idx_postort else '?'} | form={sample_row[idx_form] if idx_form else '?'}")
-                        sample_count += 1
-                print("  Diagnostik klar -- avslutar (ta bort denna rad för riktig körning)")
-                break
+
+
 
                 if idx_adress is None:
                     print("  VARNING: Hittade ingen adress-kolumn -- hoppar över fil")
@@ -179,9 +171,9 @@ def load_bolagsverket():
                     if not any(o in postort for o in sthlm_orter):
                         continue
 
-                    # Bolagsform
+                    # Bolagsform -- JurForm använder numeriska koder, 71 = Aktiebolag
                     form = row[idx_form].strip() if idx_form is not None else ""
-                    if "AB" not in form and "Aktiebolag" not in form:
+                    if form not in ("71", "72"):  # 71=AB, 72=Publikt AB
                         continue
 
                     # Anställda
