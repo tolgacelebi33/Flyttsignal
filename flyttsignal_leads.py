@@ -144,10 +144,10 @@ def load_bolagsverket():
                     return None
 
                 idx_adress   = get_col("Gatuadress", "gatuadress", "GatuAdress", "Besöksadress")
-                idx_postort  = get_col("PostOrt", "Postort", "postort")
-                idx_form     = get_col("JuridiskForm", "Juridiskform", "juridiskform", "BolagsForm")
-                idx_anst     = get_col("AntalAnstallda", "Anstallda", "anstallda", "AntAnst")
-                idx_namn     = get_col("ForetagetsNamn", "Foretagsnamn", "Namn", "namn")
+                idx_postort  = get_col("Postort", "PostOrt", "postort")
+                idx_form     = get_col("JurForm", "JuridiskForm", "Juridiskform", "BolagsForm")
+                idx_anst     = get_col("AntAnst", "AntalAnstallda", "Anstallda", "anstallda")
+                idx_namn     = get_col("Foretagsnamn", "ForetagetsNamn", "Namn", "namn")
                 idx_orgnr    = get_col("PeOrgNr", "Orgnr", "OrganisationsNr")
                 idx_sni      = get_col("Ng1", "SNI", "SniKod")
 
