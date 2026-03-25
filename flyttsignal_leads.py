@@ -144,9 +144,9 @@ def load_bolagsverket():
                     return None
 
                 idx_adress   = get_col("Gatuadress", "gatuadress", "GatuAdress", "Besöksadress")
-                idx_postort  = get_col("Postort", "PostOrt", "postort")
+                idx_postort  = get_col("PostOrt", "Postort", "postort")
                 idx_form     = get_col("JurForm", "JuridiskForm", "Juridiskform", "BolagsForm")
-                idx_anst     = get_col("AntAnst", "AntalAnstallda", "Anstallda", "anstallda")
+                idx_anst     = None  # Kolumnen finns ej i denna fil
                 idx_namn     = get_col("Foretagsnamn", "ForetagetsNamn", "Namn", "namn")
                 idx_orgnr    = get_col("PeOrgNr", "Orgnr", "OrganisationsNr")
                 idx_sni      = get_col("Ng1", "SNI", "SniKod")
@@ -175,13 +175,8 @@ def load_bolagsverket():
                         continue
 
                     # Anställda
-                    anst_raw = row[idx_anst].strip() if idx_anst is not None else "0"
-                    try:
-                        anst = int(re.sub(r'\D.*', '', anst_raw) or "0")
-                    except Exception:
-                        anst = 0
-                    if anst < 5:
-                        continue
+                    anst = 0  # Anställdatal ej tillgängligt i denna fil
+                    # Anställda-filter borttaget -- kolumnen saknas i filen
 
                     gatuadress = row[idx_adress].strip()
                     if not gatuadress:
